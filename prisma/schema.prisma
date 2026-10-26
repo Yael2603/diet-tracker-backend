@@ -1,0 +1,204 @@
+// סכמת מסד הנתונים של "מסלול בריא"
+// כל שינוי כאן דורש יצירת Migration חדשה: npm run db:migrate -- --name <שם>
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  USER
+  ADMIN
+}
+
+enum TrackType {
+  LOSE
+  MAINTAIN
+  GAIN
+}
+
+enum Difficulty {
+  EASY
+  MEDIUM
+  HARD
+}
+
+enum FoodCategory {
+  GRAINS
+  VEGETABLES
+  FRUITS
+  PROTEINS
+  DAIRY
+  FATS
+  DRINKS
+  SNACKS
+}
+
+enum MealType {
+  BREAKFAST
+  LUNCH
+  DINNER
+  SNACK
+}
+
+enum ConsultationStatus {
+  PENDING
+  ANSWERED
+}
+
+model User {
+  id                 Int       @id @default(autoincrement())
+  fullName           String    @db.VarChar(60)
+  email              String    @unique @db.VarChar(120)
+  passwordHash       String
+  role               Role      @default(USER)
+  isActive           Boolean   @default(true)
+  heightCm           Int?
+  startWeightKg      Float?
+  targetWeightKg     Float?
+  birthDate          DateTime? @db.Date
+  shareWithDietitian Boolean   @default(false)
+  trackId            Int?
+  menuId             Int?
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+
+  track         Track?         @relation(fields: [trackId], references: [id], onDelete: SetNull)
+  menu          Menu?          @relation(fields: [menuId], references: [id], onDelete: SetNull)
+  weightEntries WeightEntry[]
+  mealEntries   MealEntry[]
+  consultations Consultation[]
+
+  @@index([trackId])
+  @@index([menuId])
+  @@map("users")
+}
+
+model Track {
+  id            Int        @id @default(autoincrement())
+  name          String     @unique @db.VarChar(60)
+  description   String     @db.VarChar(500)
+  type          TrackType
+  difficulty    Difficulty
+  dailyCalories Int
+  durationWeeks Int
+  isActive      Boolean    @default(true)
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
+
+  menus Menu[]
+  users User[]
+
+  @@map("tracks")
+}
+
+model Menu {
+  id          Int      @id @default(autoincrement())
+  trackId     Int
+  name        String   @db.VarChar(60)
+  description String?  @db.VarChar(500)
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  track Track      @relation(fields: [trackId], references: [id], onDelete: Restrict)
+  items MenuItem[]
+  users User[]
+
+  @@unique([trackId, name])
+  @@map("menus")
+}
+
+model MenuItem {
+  id       Int      @id @default(autoincrement())
+  menuId   Int
+  foodId   Int
+  mealType MealType
+  servings Float
+
+  menu        Menu        @relation(fields: [menuId], references: [id], onDelete: Cascade)
+  food        Food        @relation(fields: [foodId], references: [id], onDelete: Restrict)
+  mealEntries MealEntry[]
+
+  @@unique([menuId, mealType, foodId])
+  @@index([foodId])
+  @@map("menu_items")
+}
+
+model Food {
+  id                 Int          @id @default(autoincrement())
+  name               String       @unique @db.VarChar(60)
+  category           FoodCategory
+  servingDescription String       @db.VarChar(60)
+  caloriesPerServing Int
+  isActive           Boolean      @default(true)
+  createdAt          DateTime     @default(now())
+  updatedAt          DateTime     @updatedAt
+
+  menuItems   MenuItem[]
+  mealEntries MealEntry[]
+
+  @@index([category])
+  @@map("foods")
+}
+
+model WeightEntry {
+  id        Int      @id @default(autoincrement())
+  userId    Int
+  date      DateTime @db.Date
+  weightKg  Float
+  note      String?  @db.VarChar(200)
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // שקילה אחת בלבד לכל משתמש בכל יום
+  @@unique([userId, date])
+  @@map("weight_entries")
+}
+
+model MealEntry {
+  id         Int      @id @default(autoincrement())
+  userId     Int
+  foodId     Int
+  // מאיזה פריט בתפריט נוצרה הארוחה (אם בכלל)
+  menuItemId Int?
+  date       DateTime @db.Date
+  mealType   MealType
+  servings   Float
+  // מחושב בשרת: מספר מנות × קלוריות למנה
+  calories   Int
+  fromMenu   Boolean  @default(false)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  user     User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  food     Food      @relation(fields: [foodId], references: [id], onDelete: Restrict)
+  menuItem MenuItem? @relation(fields: [menuItemId], references: [id], onDelete: SetNull)
+
+  @@index([userId, date])
+  @@index([foodId])
+  @@index([menuItemId])
+  @@map("meal_entries")
+}
+
+model Consultation {
+  id         Int                @id @default(autoincrement())
+  userId     Int
+  subject    String             @db.VarChar(100)
+  message    String             @db.VarChar(2000)
+  status     ConsultationStatus @default(PENDING)
+  answer     String?            @db.VarChar(2000)
+  answeredAt DateTime?
+  createdAt  DateTime           @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([status])
+  @@map("consultations")
+}

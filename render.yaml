@@ -1,0 +1,39 @@
+# הגדרות פריסה ל-Render (Blueprint)
+# מסד הנתונים נמצא אצל ספק חיצוני (Neon / Supabase), ולכן אין כאן הגדרת database.
+services:
+  - type: web
+    name: diet-tracker-api
+    runtime: node
+    plan: free
+    region: frankfurt
+    branch: main
+    buildCommand: npm ci --include=dev && npm run build
+    # מריץ Migrations ואז מפעיל את השרת
+    startCommand: npm run start:prod
+    healthCheckPath: /api/health
+    autoDeploy: true
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: NODE_VERSION
+        value: "22"
+      - key: DATABASE_URL
+        sync: false
+      - key: JWT_SECRET
+        generateValue: true
+      - key: JWT_EXPIRES_IN
+        value: 1d
+      - key: CORS_ORIGIN
+        value: http://localhost:5173
+      - key: APP_TIMEZONE
+        value: Asia/Jerusalem
+      - key: SEED_ON_START
+        value: "true"
+      - key: SEED_ADMIN_EMAIL
+        value: admin@example.com
+      - key: SEED_ADMIN_PASSWORD
+        sync: false
+      - key: SEED_DEMO_USER_EMAIL
+        value: user@example.com
+      - key: SEED_DEMO_USER_PASSWORD
+        sync: false

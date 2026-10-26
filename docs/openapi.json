@@ -1,0 +1,3643 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "מסלול בריא - API",
+    "version": "1.0.0",
+    "description": "שרת למערכת ליווי דיאטה: מסלולים, תפריטים, מעקב משקל, יומן אכילה ופניות לדיאטן.\n\n**איך בודקים קריאות מוגנות:**\n1. פתחו את `POST /api/auth/login` ← Try it out ← Execute.\n2. העתיקו את הערך של `token` מהתשובה (בלי מירכאות).\n3. לחצו על **Authorize** למעלה, הדביקו את ה-token ולחצו Authorize.\n\n**חשבונות הדגמה (סביבת פיתוח):** `admin@example.com` / `Admin1234` (דיאטן), `user@example.com` / `User1234` (משתמש משתף), `user2@example.com` / `User1234` (משתמש שאינו משתף).\n\nכל השגיאות מוחזרות במבנה `{ status, code, message, details? }` עם הודעה בעברית."
+  },
+  "servers": [
+    {
+      "url": "/",
+      "description": "השרת הנוכחי"
+    }
+  ],
+  "tags": [
+    {
+      "name": "כללי"
+    },
+    {
+      "name": "התחברות"
+    },
+    {
+      "name": "האזור האישי",
+      "description": "משתמש רגיל בלבד"
+    },
+    {
+      "name": "מסלולים"
+    },
+    {
+      "name": "תפריטים"
+    },
+    {
+      "name": "מאכלים"
+    },
+    {
+      "name": "שקילות",
+      "description": "משתמש רגיל בלבד"
+    },
+    {
+      "name": "יומן אכילה",
+      "description": "משתמש רגיל בלבד"
+    },
+    {
+      "name": "פניות"
+    },
+    {
+      "name": "ניהול משתמשים",
+      "description": "דיאטן בלבד"
+    }
+  ],
+  "components": {
+    "securitySchemes": {
+      "bearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT",
+        "description": "הדביקו כאן את ה-token שהתקבל מ-login"
+      }
+    },
+    "schemas": {
+      "Error": {
+        "type": "object",
+        "required": [
+          "status",
+          "code",
+          "message"
+        ],
+        "properties": {
+          "status": {
+            "type": "integer",
+            "example": 400
+          },
+          "code": {
+            "type": "string",
+            "example": "VALIDATION_ERROR"
+          },
+          "message": {
+            "type": "string",
+            "example": "הנתונים שנשלחו אינם תקינים"
+          },
+          "details": {
+            "type": "array",
+            "description": "פירוט שגיאות לפי שדה (רק בשגיאות ולידציה)",
+            "items": {
+              "type": "object",
+              "properties": {
+                "field": {
+                  "type": "string",
+                  "example": "email"
+                },
+                "message": {
+                  "type": "string",
+                  "example": "כתובת אימייל לא תקינה"
+                }
+              }
+            }
+          }
+        }
+      },
+      "Health": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "ok",
+              "error"
+            ]
+          },
+          "database": {
+            "type": "string",
+            "enum": [
+              "up",
+              "down"
+            ]
+          },
+          "timestamp": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "Option": {
+        "type": "object",
+        "properties": {
+          "value": {
+            "type": "string"
+          },
+          "label": {
+            "type": "string"
+          }
+        }
+      },
+      "Options": {
+        "type": "object",
+        "properties": {
+          "trackTypes": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Option"
+            }
+          },
+          "difficulties": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Option"
+            }
+          },
+          "foodCategories": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Option"
+            }
+          },
+          "mealTypes": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Option"
+            }
+          },
+          "consultationStatuses": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Option"
+            }
+          },
+          "mealSources": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Option"
+            }
+          }
+        }
+      },
+      "User": {
+        "type": "object",
+        "description": "משתמש. סיסמה ו-Hash לעולם אינם מוחזרים.",
+        "properties": {
+          "id": {
+            "type": "integer"
+          },
+          "fullName": {
+            "type": "string"
+          },
+          "email": {
+            "type": "string",
+            "format": "email"
+          },
+          "role": {
+            "type": "string",
+            "enum": [
+              "USER",
+              "ADMIN"
+            ]
+          },
+          "isActive": {
+            "type": "boolean"
+          },
+          "heightCm": {
+            "type": "integer",
+            "nullable": true
+          },
+          "startWeightKg": {
+            "type": "number",
+            "nullable": true
+          },
+          "targetWeightKg": {
+            "type": "number",
+            "nullable": true
+          },
+          "birthDate": {
+            "type": "string",
+            "format": "date",
+            "example": "2026-10-22",
+            "nullable": true
+          },
+          "shareWithDietitian": {
+            "type": "boolean"
+          },
+          "trackId": {
+            "type": "integer",
+            "nullable": true
+          },
+          "menuId": {
+            "type": "integer",
+            "nullable": true
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "example": {
+          "id": 2,
+          "fullName": "ישראל ישראלי",
+          "email": "user@example.com",
+          "role": "USER",
+          "isActive": true,
+          "heightCm": 175,
+          "startWeightKg": 88,
+          "targetWeightKg": 78,
+          "birthDate": "1990-05-10",
+          "shareWithDietitian": true,
+          "trackId": 2,
+          "menuId": 3,
+          "createdAt": "2026-10-01T08:00:00.000Z"
+        }
+      },
+      "RegisterRequest": {
+        "type": "object",
+        "required": [
+          "fullName",
+          "email",
+          "password"
+        ],
+        "properties": {
+          "fullName": {
+            "type": "string",
+            "minLength": 2,
+            "maxLength": 60
+          },
+          "email": {
+            "type": "string",
+            "format": "email",
+            "maxLength": 120
+          },
+          "password": {
+            "type": "string",
+            "minLength": 8,
+            "maxLength": 72,
+            "description": "לפחות 8 תווים, אות באנגלית וספרה"
+          }
+        }
+      },
+      "LoginRequest": {
+        "type": "object",
+        "required": [
+          "email",
+          "password"
+        ],
+        "properties": {
+          "email": {
+            "type": "string",
+            "format": "email"
+          },
+          "password": {
+            "type": "string"
+          }
+        }
+      },
+      "AuthResponse": {
+        "type": "object",
+        "properties": {
+          "token": {
+            "type": "string",
+            "description": "JWT - יש לשלוח בכותרת Authorization: Bearer <token>"
+          },
+          "user": {
+            "$ref": "#/components/schemas/User"
+          }
+        }
+      },
+      "ProfileUpdate": {
+        "type": "object",
+        "description": "כל השדות אופציונליים - שולחים רק מה שרוצים לשנות. null מוחק ערך.",
+        "properties": {
+          "fullName": {
+            "type": "string",
+            "minLength": 2,
+            "maxLength": 60
+          },
+          "heightCm": {
+            "type": "integer",
+            "minimum": 100,
+            "maximum": 250,
+            "nullable": true
+          },
+          "startWeightKg": {
+            "type": "number",
+            "minimum": 30,
+            "maximum": 300,
+            "nullable": true
+          },
+          "targetWeightKg": {
+            "type": "number",
+            "minimum": 30,
+            "maximum": 300,
+            "nullable": true
+          },
+          "birthDate": {
+            "type": "string",
+            "format": "date",
+            "example": "2026-10-22",
+            "description": "גיל 18 ומעלה",
+            "nullable": true
+          },
+          "shareWithDietitian": {
+            "type": "boolean"
+          }
+        }
+      },
+      "PlanUpdate": {
+        "type": "object",
+        "required": [
+          "trackId"
+        ],
+        "properties": {
+          "trackId": {
+            "type": "integer",
+            "description": "מסלול פעיל"
+          },
+          "menuId": {
+            "type": "integer",
+            "description": "תפריט פעיל ששייך למסלול. null/חסר = ללא תפריט",
+            "nullable": true
+          }
+        }
+      },
+      "PlanResponse": {
+        "type": "object",
+        "properties": {
+          "user": {
+            "$ref": "#/components/schemas/User"
+          },
+          "track": {
+            "$ref": "#/components/schemas/Track"
+          },
+          "menu": {
+            "$ref": "#/components/schemas/Menu",
+            "nullable": true
+          }
+        }
+      },
+      "Progress": {
+        "type": "object",
+        "properties": {
+          "startWeightKg": {
+            "type": "number",
+            "nullable": true
+          },
+          "targetWeightKg": {
+            "type": "number",
+            "nullable": true
+          },
+          "currentWeightKg": {
+            "type": "number",
+            "description": "השקילה האחרונה, או המשקל ההתחלתי אם אין שקילות",
+            "nullable": true
+          },
+          "changeKg": {
+            "type": "number",
+            "description": "שינוי מההתחלה (שלילי = ירידה)",
+            "nullable": true
+          },
+          "remainingKg": {
+            "type": "number",
+            "nullable": true
+          },
+          "percent": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 100,
+            "description": "אחוז התקדמות לעבר היעד",
+            "nullable": true
+          }
+        },
+        "example": {
+          "startWeightKg": 88,
+          "targetWeightKg": 78,
+          "currentWeightKg": 85.1,
+          "changeKg": -2.9,
+          "remainingKg": 7.1,
+          "percent": 29
+        }
+      },
+      "DailyStatus": {
+        "type": "string",
+        "enum": [
+          "NO_TRACK",
+          "NO_DATA",
+          "UNDER",
+          "ON_TARGET",
+          "SLIGHTLY_OVER",
+          "FAR_OVER"
+        ],
+        "description": "NO_TRACK=לא נבחר מסלול, NO_DATA=אין ארוחות, UNDER=פחות מ-80%, ON_TARGET=80%-110%, SLIGHTLY_OVER=110%-125%, FAR_OVER=מעל 125%"
+      },
+      "MenuAdherence": {
+        "type": "object",
+        "nullable": true,
+        "properties": {
+          "eaten": {
+            "type": "integer"
+          },
+          "total": {
+            "type": "integer"
+          }
+        }
+      },
+      "TodaySummary": {
+        "type": "object",
+        "properties": {
+          "date": {
+            "type": "string",
+            "format": "date",
+            "example": "2026-10-22"
+          },
+          "totalCalories": {
+            "type": "integer"
+          },
+          "targetCalories": {
+            "type": "integer",
+            "nullable": true
+          },
+          "remainingCalories": {
+            "type": "integer",
+            "nullable": true
+          },
+          "score": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 100,
+            "nullable": true
+          },
+          "status": {
+            "$ref": "#/components/schemas/DailyStatus"
+          },
+          "statusLabel": {
+            "type": "string"
+          },
+          "percentOfTarget": {
+            "type": "integer",
+            "nullable": true
+          },
+          "menuAdherence": {
+            "$ref": "#/components/schemas/MenuAdherence"
+          }
+        },
+        "example": {
+          "date": "2026-10-22",
+          "totalCalories": 1450,
+          "targetCalories": 1800,
+          "remainingCalories": 350,
+          "score": 100,
+          "status": "ON_TARGET",
+          "statusLabel": "עמדת ביעד 🎯",
+          "percentOfTarget": 81,
+          "menuAdherence": {
+            "eaten": 4,
+            "total": 12
+          }
+        }
+      },
+      "Dashboard": {
+        "type": "object",
+        "properties": {
+          "user": {
+            "$ref": "#/components/schemas/User"
+          },
+          "track": {
+            "$ref": "#/components/schemas/Track",
+            "nullable": true
+          },
+          "menu": {
+            "$ref": "#/components/schemas/Menu",
+            "nullable": true
+          },
+          "progress": {
+            "$ref": "#/components/schemas/Progress"
+          },
+          "today": {
+            "$ref": "#/components/schemas/TodaySummary"
+          }
+        }
+      },
+      "Track": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer"
+          },
+          "name": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "LOSE",
+              "MAINTAIN",
+              "GAIN"
+            ]
+          },
+          "typeLabel": {
+            "type": "string"
+          },
+          "difficulty": {
+            "type": "string",
+            "enum": [
+              "EASY",
+              "MEDIUM",
+              "HARD"
+            ]
+          },
+          "difficultyLabel": {
+            "type": "string"
+          },
+          "dailyCalories": {
+            "type": "integer"
+          },
+          "durationWeeks": {
+            "type": "integer"
+          },
+          "isActive": {
+            "type": "boolean"
+          },
+          "menusCount": {
+            "type": "integer",
+            "description": "מספר התפריטים (למשתמש רגיל - רק פעילים)"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "example": {
+          "id": 2,
+          "name": "ירידה מתונה",
+          "description": "ירידה הדרגתית של כחצי קילו בשבוע, בלי לוותר על ארוחות מלאות.",
+          "type": "LOSE",
+          "typeLabel": "ירידה במשקל",
+          "difficulty": "MEDIUM",
+          "difficultyLabel": "בינוני",
+          "dailyCalories": 1800,
+          "durationWeeks": 12,
+          "isActive": true,
+          "menusCount": 2,
+          "createdAt": "2026-10-01T08:00:00.000Z",
+          "updatedAt": "2026-10-01T08:00:00.000Z"
+        }
+      },
+      "TrackInput": {
+        "type": "object",
+        "required": [
+          "name",
+          "description",
+          "type",
+          "difficulty",
+          "dailyCalories",
+          "durationWeeks"
+        ],
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 2,
+            "maxLength": 60
+          },
+          "description": {
+            "type": "string",
+            "minLength": 5,
+            "maxLength": 500
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "LOSE",
+              "MAINTAIN",
+              "GAIN"
+            ]
+          },
+          "difficulty": {
+            "type": "string",
+            "enum": [
+              "EASY",
+              "MEDIUM",
+              "HARD"
+            ]
+          },
+          "dailyCalories": {
+            "type": "integer",
+            "minimum": 1000,
+            "maximum": 4500
+          },
+          "durationWeeks": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 104
+          }
+        }
+      },
+      "StatusInput": {
+        "type": "object",
+        "required": [
+          "isActive"
+        ],
+        "properties": {
+          "isActive": {
+            "type": "boolean"
+          }
+        }
+      },
+      "FoodShort": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer"
+          },
+          "name": {
+            "type": "string"
+          },
+          "category": {
+            "type": "string"
+          },
+          "categoryLabel": {
+            "type": "string"
+          },
+          "servingDescription": {
+            "type": "string"
+          },
+          "caloriesPerServing": {
+            "type": "integer"
+          }
+        }
+      },
+      "Food": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer"
+          },
+          "name": {
+            "type": "string"
+          },
+          "category": {
+            "type": "string",
+            "enum": [
+              "GRAINS",
+              "VEGETABLES",
+              "FRUITS",
+              "PROTEINS",
+              "DAIRY",
+              "FATS",
+              "DRINKS",
+              "SNACKS"
+            ]
+          },
+          "categoryLabel": {
+            "type": "string"
+          },
+          "servingDescription": {
+            "type": "string"
+          },
+          "caloriesPerServing": {
+            "type": "integer"
+          },
+          "isActive": {
+            "type": "boolean"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "example": {
+          "id": 1,
+          "name": "לחם מלא",
+          "category": "GRAINS",
+          "categoryLabel": "דגנים",
+          "servingDescription": "2 פרוסות",
+          "caloriesPerServing": 140,
+          "isActive": true,
+          "createdAt": "2026-10-01T08:00:00.000Z",
+          "updatedAt": "2026-10-01T08:00:00.000Z"
+        }
+      },
+      "FoodInput": {
+        "type": "object",
+        "required": [
+          "name",
+          "category",
+          "servingDescription",
+          "caloriesPerServing"
+        ],
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 2,
+            "maxLength": 60
+          },
+          "category": {
+            "type": "string",
+            "enum": [
+              "GRAINS",
+              "VEGETABLES",
+              "FRUITS",
+              "PROTEINS",
+              "DAIRY",
+              "FATS",
+              "DRINKS",
+              "SNACKS"
+            ]
+          },
+          "servingDescription": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 60
+          },
+          "caloriesPerServing": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 2000
+          }
+        }
+      },
+      "MenuItem": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer"
+          },
+          "mealType": {
+            "type": "string",
+            "enum": [
+              "BREAKFAST",
+              "LUNCH",
+              "DINNER",
+              "SNACK"
+            ]
+          },
+          "mealTypeLabel": {
+            "type": "string"
+          },
+          "servings": {
+            "type": "number"
+          },
+          "calories": {
+            "type": "integer"
+          },
+          "food": {
+            "$ref": "#/components/schemas/FoodShort"
+          }
+        }
+      },
+      "Menu": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer"
+          },
+          "trackId": {
+            "type": "integer"
+          },
+          "name": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string",
+            "nullable": true
+          },
+          "isActive": {
+            "type": "boolean"
+          },
+          "totalCalories": {
+            "type": "integer",
+            "description": "סך הקלוריות בתפריט - מחושב בשרת"
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/MenuItem"
+            }
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "example": {
+          "id": 3,
+          "trackId": 2,
+          "name": "תפריט חלבי",
+          "description": "בוקר וערב חלביים, צהריים בשרי",
+          "isActive": true,
+          "totalCalories": 1586,
+          "items": [
+            {
+              "id": 11,
+              "mealType": "BREAKFAST",
+              "mealTypeLabel": "בוקר",
+              "servings": 1,
+              "calories": 140,
+              "food": {
+                "id": 1,
+                "name": "לחם מלא",
+                "category": "GRAINS",
+                "categoryLabel": "דגנים",
+                "servingDescription": "2 פרוסות",
+                "caloriesPerServing": 140
+              }
+            }
+          ],
+          "createdAt": "2026-10-01T08:00:00.000Z",
+          "updatedAt": "2026-10-01T08:00:00.000Z"
+        }
+      },
+      "MenuItemInput": {
+        "type": "object",
+        "required": [
+          "mealType",
+          "foodId",
+          "servings"
+        ],
+        "properties": {
+          "mealType": {
+            "type": "string",
+            "enum": [
+              "BREAKFAST",
+              "LUNCH",
+              "DINNER",
+              "SNACK"
+            ]
+          },
+          "foodId": {
+            "type": "integer",
+            "description": "מאכל פעיל מהמאגר"
+          },
+          "servings": {
+            "type": "number",
+            "minimum": 0.25,
+            "maximum": 20
+          }
+        }
+      },
+      "MenuCreate": {
+        "type": "object",
+        "required": [
+          "trackId",
+          "name",
+          "items"
+        ],
+        "properties": {
+          "trackId": {
+            "type": "integer"
+          },
+          "name": {
+            "type": "string",
+            "minLength": 2,
+            "maxLength": 60,
+            "description": "ייחודי בתוך המסלול"
+          },
+          "description": {
+            "type": "string",
+            "maxLength": 500,
+            "nullable": true
+          },
+          "items": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 40,
+            "items": {
+              "$ref": "#/components/schemas/MenuItemInput"
+            }
+          }
+        }
+      },
+      "MenuUpdate": {
+        "type": "object",
+        "required": [
+          "name",
+          "items"
+        ],
+        "description": "רשימת items מחליפה את כל הפריטים הקודמים",
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 2,
+            "maxLength": 60
+          },
+          "description": {
+            "type": "string",
+            "maxLength": 500,
+            "nullable": true
+          },
+          "items": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 40,
+            "items": {
+              "$ref": "#/components/schemas/MenuItemInput"
+            }
+          }
+        }
+      },
+      "Weight": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer"
+          },
+          "date": {
+            "type": "string",
+            "format": "date",
+            "example": "2026-10-22"
+          },
+          "weightKg": {
+            "type": "number"
+          },
+          "note": {
+            "type": "string",
+            "nullable": true
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "example": {
+          "id": 5,
+          "date": "2026-10-22",
+          "weightKg": 85.1,
+          "note": null,
+          "createdAt": "2026-10-22T06:00:00.000Z"
+        }
+      },
+      "WeightInput": {
+        "type": "object",
+        "required": [
+          "date",
+          "weightKg"
+        ],
+        "description": "שקילה אחת בלבד לכל יום",
+        "properties": {
+          "date": {
+            "type": "string",
+            "format": "date",
+            "example": "2026-10-22",
+            "description": "לא תאריך עתידי"
+          },
+          "weightKg": {
+            "type": "number",
+            "minimum": 30,
+            "maximum": 300
+          },
+          "note": {
+            "type": "string",
+            "maxLength": 200,
+            "nullable": true
+          }
+        }
+      },
+      "Meal": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer"
+          },
+          "date": {
+            "type": "string",
+            "format": "date",
+            "example": "2026-10-22"
+          },
+          "mealType": {
+            "type": "string",
+            "enum": [
+              "BREAKFAST",
+              "LUNCH",
+              "DINNER",
+              "SNACK"
+            ]
+          },
+          "mealTypeLabel": {
+            "type": "string"
+          },
+          "servings": {
+            "type": "number"
+          },
+          "calories": {
+            "type": "integer",
+            "description": "מחושב בשרת: מנות × קלוריות למנה"
+          },
+          "fromMenu": {
+            "type": "boolean"
+          },
+          "source": {
+            "type": "string",
+            "enum": [
+              "MENU",
+              "OTHER"
+            ]
+          },
+          "sourceLabel": {
+            "type": "string"
+          },
+          "menuItemId": {
+            "type": "integer",
+            "nullable": true
+          },
+          "food": {
+            "$ref": "#/components/schemas/FoodShort"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "example": {
+          "id": 40,
+          "date": "2026-10-22",
+          "mealType": "BREAKFAST",
+          "mealTypeLabel": "בוקר",
+          "servings": 1,
+          "calories": 140,
+          "fromMenu": true,
+          "source": "MENU",
+          "sourceLabel": "מהתפריט",
+          "menuItemId": 11,
+          "food": {
+            "id": 1,
+            "name": "לחם מלא",
+            "category": "GRAINS",
+            "categoryLabel": "דגנים",
+            "servingDescription": "2 פרוסות",
+            "caloriesPerServing": 140
+          },
+          "createdAt": "2026-10-22T06:30:00.000Z",
+          "updatedAt": "2026-10-22T06:30:00.000Z"
+        }
+      },
+      "MealInput": {
+        "type": "object",
+        "required": [
+          "date",
+          "mealType",
+          "foodId",
+          "servings"
+        ],
+        "properties": {
+          "date": {
+            "type": "string",
+            "format": "date",
+            "example": "2026-10-22",
+            "description": "לא תאריך עתידי"
+          },
+          "mealType": {
+            "type": "string",
+            "enum": [
+              "BREAKFAST",
+              "LUNCH",
+              "DINNER",
+              "SNACK"
+            ]
+          },
+          "foodId": {
+            "type": "integer",
+            "description": "מאכל פעיל מהמאגר"
+          },
+          "servings": {
+            "type": "number",
+            "minimum": 0.25,
+            "maximum": 20
+          }
+        }
+      },
+      "FromMenuInput": {
+        "type": "object",
+        "required": [
+          "menuItemId"
+        ],
+        "properties": {
+          "menuItemId": {
+            "type": "integer",
+            "description": "מזהה פריט מהתפריט שלי (menuItems[].id)"
+          },
+          "date": {
+            "type": "string",
+            "format": "date",
+            "example": "2026-10-22",
+            "description": "ברירת מחדל: היום"
+          }
+        }
+      },
+      "DaySummary": {
+        "type": "object",
+        "properties": {
+          "date": {
+            "type": "string",
+            "format": "date",
+            "example": "2026-10-22"
+          },
+          "source": {
+            "type": "string",
+            "enum": [
+              "ALL",
+              "MENU",
+              "OTHER"
+            ]
+          },
+          "totalCalories": {
+            "type": "integer"
+          },
+          "targetCalories": {
+            "type": "integer",
+            "nullable": true
+          },
+          "remainingCalories": {
+            "type": "integer",
+            "nullable": true
+          },
+          "score": {
+            "type": "integer",
+            "nullable": true
+          },
+          "status": {
+            "$ref": "#/components/schemas/DailyStatus"
+          },
+          "statusLabel": {
+            "type": "string"
+          },
+          "percentOfTarget": {
+            "type": "integer",
+            "nullable": true
+          },
+          "caloriesByMealType": {
+            "type": "object",
+            "properties": {
+              "BREAKFAST": {
+                "type": "integer"
+              },
+              "LUNCH": {
+                "type": "integer"
+              },
+              "DINNER": {
+                "type": "integer"
+              },
+              "SNACK": {
+                "type": "integer"
+              }
+            }
+          },
+          "menu": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "integer"
+              },
+              "name": {
+                "type": "string"
+              }
+            },
+            "nullable": true
+          },
+          "menuAdherence": {
+            "$ref": "#/components/schemas/MenuAdherence"
+          },
+          "menuItems": {
+            "type": "array",
+            "description": "\"התפריט שלי להיום\" - כל פריט עם eaten=true אם כבר נאכל",
+            "items": {
+              "allOf": [
+                {
+                  "$ref": "#/components/schemas/MenuItem"
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "eaten": {
+                      "type": "boolean"
+                    }
+                  }
+                }
+              ]
+            }
+          },
+          "meals": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Meal"
+            }
+          }
+        },
+        "example": {
+          "date": "2026-10-22",
+          "source": "ALL",
+          "totalCalories": 1450,
+          "targetCalories": 1800,
+          "remainingCalories": 350,
+          "score": 100,
+          "status": "ON_TARGET",
+          "statusLabel": "עמדת ביעד 🎯",
+          "percentOfTarget": 81,
+          "caloriesByMealType": {
+            "BREAKFAST": 335,
+            "LUNCH": 525,
+            "DINNER": 410,
+            "SNACK": 180
+          },
+          "menu": {
+            "id": 3,
+            "name": "תפריט חלבי"
+          },
+          "menuAdherence": {
+            "eaten": 4,
+            "total": 12
+          },
+          "menuItems": [
+            {
+              "id": 11,
+              "mealType": "BREAKFAST",
+              "mealTypeLabel": "בוקר",
+              "servings": 1,
+              "calories": 140,
+              "food": {
+                "id": 1,
+                "name": "לחם מלא",
+                "category": "GRAINS",
+                "categoryLabel": "דגנים",
+                "servingDescription": "2 פרוסות",
+                "caloriesPerServing": 140
+              },
+              "eaten": true
+            }
+          ],
+          "meals": [
+            {
+              "id": 40,
+              "date": "2026-10-22",
+              "mealType": "BREAKFAST",
+              "mealTypeLabel": "בוקר",
+              "servings": 1,
+              "calories": 140,
+              "fromMenu": true,
+              "source": "MENU",
+              "sourceLabel": "מהתפריט",
+              "menuItemId": 11,
+              "food": {
+                "id": 1,
+                "name": "לחם מלא",
+                "category": "GRAINS",
+                "categoryLabel": "דגנים",
+                "servingDescription": "2 פרוסות",
+                "caloriesPerServing": 140
+              },
+              "createdAt": "2026-10-22T06:30:00.000Z",
+              "updatedAt": "2026-10-22T06:30:00.000Z"
+            }
+          ]
+        }
+      },
+      "Consultation": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer"
+          },
+          "subject": {
+            "type": "string"
+          },
+          "message": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "PENDING",
+              "ANSWERED"
+            ]
+          },
+          "statusLabel": {
+            "type": "string"
+          },
+          "answer": {
+            "type": "string",
+            "nullable": true
+          },
+          "answeredAt": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "user": {
+            "type": "object",
+            "description": "מוחזר רק לדיאטן",
+            "properties": {
+              "id": {
+                "type": "integer"
+              },
+              "fullName": {
+                "type": "string"
+              },
+              "email": {
+                "type": "string"
+              }
+            }
+          }
+        },
+        "example": {
+          "id": 2,
+          "subject": "ירידה איטית",
+          "message": "השבוע ירדתי פחות מבשבוע שעבר. האם זה תקין?",
+          "status": "PENDING",
+          "statusLabel": "ממתינה לתשובה",
+          "answer": null,
+          "answeredAt": null,
+          "createdAt": "2026-10-21T18:00:00.000Z"
+        }
+      },
+      "ConsultationCreate": {
+        "type": "object",
+        "required": [
+          "subject",
+          "message"
+        ],
+        "properties": {
+          "subject": {
+            "type": "string",
+            "minLength": 3,
+            "maxLength": 100
+          },
+          "message": {
+            "type": "string",
+            "minLength": 5,
+            "maxLength": 2000
+          }
+        }
+      },
+      "AnswerInput": {
+        "type": "object",
+        "required": [
+          "answer"
+        ],
+        "properties": {
+          "answer": {
+            "type": "string",
+            "minLength": 2,
+            "maxLength": 2000
+          }
+        }
+      },
+      "AdminUserListItem": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer"
+          },
+          "fullName": {
+            "type": "string"
+          },
+          "email": {
+            "type": "string"
+          },
+          "isActive": {
+            "type": "boolean"
+          },
+          "shareWithDietitian": {
+            "type": "boolean"
+          },
+          "track": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "integer"
+              },
+              "name": {
+                "type": "string"
+              }
+            },
+            "nullable": true
+          },
+          "pendingConsultations": {
+            "type": "integer"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "AdminUserDetails": {
+        "type": "object",
+        "description": "אם sharing=false - מוחזרים רק פרטים בסיסיים, overview ו-weights הם null",
+        "properties": {
+          "user": {
+            "type": "object",
+            "description": "פרטי המשתמש (מלאים רק כשהוא משתף)"
+          },
+          "sharing": {
+            "type": "boolean"
+          },
+          "message": {
+            "type": "string",
+            "nullable": true
+          },
+          "overview": {
+            "type": "object",
+            "properties": {
+              "track": {
+                "$ref": "#/components/schemas/Track",
+                "nullable": true
+              },
+              "menu": {
+                "$ref": "#/components/schemas/Menu",
+                "nullable": true
+              },
+              "progress": {
+                "$ref": "#/components/schemas/Progress"
+              },
+              "today": {
+                "$ref": "#/components/schemas/TodaySummary"
+              }
+            },
+            "nullable": true
+          },
+          "weights": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Weight"
+            },
+            "nullable": true
+          }
+        }
+      }
+    },
+    "responses": {
+      "BadRequest": {
+        "description": "שגיאת ולידציה",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/Error"
+            },
+            "example": {
+              "status": 400,
+              "code": "VALIDATION_ERROR",
+              "message": "הנתונים שנשלחו אינם תקינים",
+              "details": [
+                {
+                  "field": "weightKg",
+                  "message": "הערך חייב להיות לפחות 30"
+                }
+              ]
+            }
+          }
+        }
+      },
+      "Unauthorized": {
+        "description": "חסר Token, ה-Token לא תקין או שפג תוקפו",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/Error"
+            },
+            "example": {
+              "status": 401,
+              "code": "UNAUTHORIZED",
+              "message": "חסר Token, ה-Token לא תקין או שפג תוקפו"
+            }
+          }
+        }
+      },
+      "Forbidden": {
+        "description": "אין לך הרשאה לבצע פעולה זו",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/Error"
+            },
+            "example": {
+              "status": 403,
+              "code": "FORBIDDEN",
+              "message": "אין לך הרשאה לבצע פעולה זו"
+            }
+          }
+        }
+      },
+      "NotFound": {
+        "description": "הפריט לא נמצא",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/Error"
+            },
+            "example": {
+              "status": 404,
+              "code": "NOT_FOUND",
+              "message": "הפריט לא נמצא"
+            }
+          }
+        }
+      },
+      "Conflict": {
+        "description": "קיימת כבר רשומה עם אותם ערכים",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/Error"
+            },
+            "example": {
+              "status": 409,
+              "code": "CONFLICT",
+              "message": "קיימת כבר רשומה עם אותם ערכים"
+            }
+          }
+        }
+      }
+    }
+  },
+  "paths": {
+    "/api/health": {
+      "get": {
+        "tags": [
+          "כללי"
+        ],
+        "summary": "בדיקת בריאות השרת",
+        "description": "מחזיר 200 אם השרת ומסד הנתונים פעילים. ציבורי.",
+        "responses": {
+          "200": {
+            "description": "השרת פעיל",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Health"
+                },
+                "example": {
+                  "status": "ok",
+                  "database": "up",
+                  "timestamp": "2026-10-22T10:00:00.000Z"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "מסד הנתונים אינו זמין",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Health"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/options": {
+      "get": {
+        "tags": [
+          "כללי"
+        ],
+        "summary": "רשימות לתיבות בחירה",
+        "description": "כל ערכי הבחירה (קטגוריות, סוגי ארוחות וכו') עם תוויות בעברית. ציבורי.",
+        "responses": {
+          "200": {
+            "description": "הרשימות",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Options"
+                },
+                "example": {
+                  "foodCategories": [
+                    {
+                      "value": "GRAINS",
+                      "label": "דגנים"
+                    }
+                  ],
+                  "mealTypes": [
+                    {
+                      "value": "BREAKFAST",
+                      "label": "בוקר"
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/auth/register": {
+      "post": {
+        "tags": [
+          "התחברות"
+        ],
+        "summary": "הרשמה",
+        "description": "יוצר משתמש רגיל (USER) ומחזיר Token. ציבורי.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RegisterRequest"
+              },
+              "example": {
+                "fullName": "דוד כהן",
+                "email": "david@example.com",
+                "password": "Pass1234"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "נרשם בהצלחה",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "409": {
+            "description": "כתובת האימייל כבר רשומה במערכת",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "status": 409,
+                  "code": "CONFLICT",
+                  "message": "כתובת האימייל כבר רשומה במערכת"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/auth/login": {
+      "post": {
+        "tags": [
+          "התחברות"
+        ],
+        "summary": "התחברות",
+        "description": "מחזיר JWT. העתיקו את ה-token ולחצו על Authorize למעלה. ציבורי.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LoginRequest"
+              },
+              "example": {
+                "email": "user@example.com",
+                "password": "User1234"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "התחברות הצליחה",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthResponse"
+                },
+                "example": {
+                  "token": "eyJhbGciOiJIUzI1NiIs...",
+                  "user": {
+                    "id": 2,
+                    "fullName": "ישראל ישראלי",
+                    "email": "user@example.com",
+                    "role": "USER",
+                    "isActive": true,
+                    "heightCm": 175,
+                    "startWeightKg": 88,
+                    "targetWeightKg": 78,
+                    "birthDate": "1990-05-10",
+                    "shareWithDietitian": true,
+                    "trackId": 2,
+                    "menuId": 3,
+                    "createdAt": "2026-10-01T08:00:00.000Z"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "description": "אימייל או סיסמה שגויים",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "status": 401,
+                  "code": "UNAUTHORIZED",
+                  "message": "אימייל או סיסמה שגויים"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "החשבון חסום. יש לפנות לדיאטן",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "status": 403,
+                  "code": "FORBIDDEN",
+                  "message": "החשבון חסום. יש לפנות לדיאטן"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/auth/me": {
+      "get": {
+        "tags": [
+          "התחברות"
+        ],
+        "summary": "המשתמש המחובר",
+        "description": "מחזיר את פרטי המשתמש לפי ה-Token. כל משתמש מחובר.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "פרטי המשתמש",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/User"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          }
+        }
+      }
+    },
+    "/api/me/dashboard": {
+      "get": {
+        "tags": [
+          "האזור האישי"
+        ],
+        "summary": "לוח הבקרה",
+        "description": "כל נתוני מסך \"הבית שלי\" בקריאה אחת: פרופיל, מסלול, תפריט, התקדמות ותקציר היום. משתמש רגיל בלבד.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "נתוני לוח הבקרה",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Dashboard"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          }
+        }
+      }
+    },
+    "/api/me/profile": {
+      "put": {
+        "tags": [
+          "האזור האישי"
+        ],
+        "summary": "עדכון פרופיל ושיתוף",
+        "description": "עדכון חלקי: שולחים רק את השדות שרוצים לשנות, כולל shareWithDietitian. משתמש רגיל בלבד.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ProfileUpdate"
+              },
+              "example": {
+                "heightCm": 175,
+                "startWeightKg": 88,
+                "targetWeightKg": 78,
+                "birthDate": "1990-05-10",
+                "shareWithDietitian": true
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "הפרופיל עודכן",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/User"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          }
+        }
+      }
+    },
+    "/api/me/plan": {
+      "put": {
+        "tags": [
+          "האזור האישי"
+        ],
+        "summary": "בחירת מסלול ותפריט",
+        "description": "בוחרים מסלול פעיל ותפריט פעיל מתוך התפריטים שלו. משתמש רגיל בלבד.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PlanUpdate"
+              },
+              "example": {
+                "trackId": 2,
+                "menuId": 3
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "המסלול נבחר",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PlanResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        }
+      }
+    },
+    "/api/tracks": {
+      "get": {
+        "tags": [
+          "מסלולים"
+        ],
+        "summary": "רשימת מסלולים",
+        "description": "משתמש רגיל: רק מסלולים פעילים. דיאטן: כל המסלולים. ממוין לפי יעד קלוריות.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "רשימת מסלולים",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/Track"
+                  }
+                },
+                "example": [
+                  {
+                    "id": 2,
+                    "name": "ירידה מתונה",
+                    "description": "ירידה הדרגתית של כחצי קילו בשבוע, בלי לוותר על ארוחות מלאות.",
+                    "type": "LOSE",
+                    "typeLabel": "ירידה במשקל",
+                    "difficulty": "MEDIUM",
+                    "difficultyLabel": "בינוני",
+                    "dailyCalories": 1800,
+                    "durationWeeks": 12,
+                    "isActive": true,
+                    "menusCount": 2,
+                    "createdAt": "2026-10-01T08:00:00.000Z",
+                    "updatedAt": "2026-10-01T08:00:00.000Z"
+                  }
+                ]
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "מסלולים"
+        ],
+        "summary": "הוספת מסלול",
+        "description": "דיאטן בלבד.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TrackInput"
+              },
+              "example": {
+                "name": "ירידה עדינה",
+                "description": "ירידה איטית ונוחה",
+                "type": "LOSE",
+                "difficulty": "EASY",
+                "dailyCalories": 2000,
+                "durationWeeks": 16
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "המסלול נוצר",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Track"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          }
+        }
+      }
+    },
+    "/api/tracks/{id}": {
+      "put": {
+        "tags": [
+          "מסלולים"
+        ],
+        "summary": "עריכת מסלול",
+        "description": "שולחים את כל השדות. דיאטן בלבד.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "מזהה המסלול",
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "example": 1
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TrackInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "המסלול עודכן",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Track"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          }
+        }
+      }
+    },
+    "/api/tracks/{id}/status": {
+      "patch": {
+        "tags": [
+          "מסלולים"
+        ],
+        "summary": "הפעלה / השבתה של מסלול",
+        "description": "מסלול מושבת לא מוצג למשתמשים חדשים. דיאטן בלבד.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "מזהה המסלול",
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "example": 1
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StatusInput"
+              },
+              "example": {
+                "isActive": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "הסטטוס עודכן",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Track"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        }
+      }
+    },
+    "/api/tracks/{id}/menus": {
+      "get": {
+        "tags": [
+          "תפריטים"
+        ],
+        "summary": "התפריטים של מסלול",
+        "description": "משתמש רגיל: רק תפריטים פעילים. דיאטן: כולם. כולל פריטים וסך קלוריות.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "מזהה המסלול",
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "example": 1
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "רשימת תפריטים",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/Menu"
+                  }
+                },
+                "example": [
+                  {
+                    "id": 3,
+                    "trackId": 2,
+                    "name": "תפריט חלבי",
+                    "description": "בוקר וערב חלביים, צהריים בשרי",
+                    "isActive": true,
+                    "totalCalories": 1586,
+                    "items": [
+                      {
+                        "id": 11,
+                        "mealType": "BREAKFAST",
+                        "mealTypeLabel": "בוקר",
+                        "servings": 1,
+                        "calories": 140,
+                        "food": {
+                          "id": 1,
+                          "name": "לחם מלא",
+                          "category": "GRAINS",
+                          "categoryLabel": "דגנים",
+                          "servingDescription": "2 פרוסות",
+                          "caloriesPerServing": 140
+                        }
+                      }
+                    ],
+                    "createdAt": "2026-10-01T08:00:00.000Z",
+                    "updatedAt": "2026-10-01T08:00:00.000Z"
+                  }
+                ]
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        }
+      }
+    },
+    "/api/menus": {
+      "post": {
+        "tags": [
+          "תפריטים"
+        ],
+        "summary": "הוספת תפריט",
+        "description": "יוצרים תפריט עם כל הפריטים בקריאה אחת. דיאטן בלבד.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MenuCreate"
+              },
+              "example": {
+                "trackId": 2,
+                "name": "תפריט צמחוני",
+                "description": "ללא בשר",
+                "items": [
+                  {
+                    "mealType": "BREAKFAST",
+                    "foodId": 1,
+                    "servings": 1
+                  },
+                  {
+                    "mealType": "LUNCH",
+                    "foodId": 22,
+                    "servings": 1
+                  }
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "התפריט נוצר",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Menu"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          }
+        }
+      }
+    },
+    "/api/menus/{id}": {
+      "put": {
+        "tags": [
+          "תפריטים"
+        ],
+        "summary": "עריכת תפריט",
+        "description": "שולחים שם, תיאור ואת כל רשימת הפריטים (מחליפה את הקודמת). דיאטן בלבד.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "מזהה התפריט",
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "example": 1
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MenuUpdate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "התפריט עודכן",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Menu"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          }
+        }
+      }
+    },
+    "/api/menus/{id}/status": {
+      "patch": {
+        "tags": [
+          "תפריטים"
+        ],
+        "summary": "הפעלה / השבתה של תפריט",
+        "description": "דיאטן בלבד.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "מזהה התפריט",
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "example": 1
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StatusInput"
+              },
+              "example": {
+                "isActive": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "הסטטוס עודכן",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Menu"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        }
+      }
+    },
+    "/api/foods": {
+      "get": {
+        "tags": [
+          "מאכלים"
+        ],
+        "summary": "חיפוש וסינון מאכלים",
+        "description": "משתמש רגיל: רק מאכלים פעילים. דיאטן: כולם. ממוין לפי שם.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "search",
+            "in": "query",
+            "required": false,
+            "description": "חיפוש בשם המאכל",
+            "schema": {
+              "type": "string"
+            },
+            "example": "לחם"
+          },
+          {
+            "name": "category",
+            "in": "query",
+            "required": false,
+            "description": "סינון לפי קטגוריה",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "GRAINS",
+                "VEGETABLES",
+                "FRUITS",
+                "PROTEINS",
+                "DAIRY",
+                "FATS",
+                "DRINKS",
+                "SNACKS"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "רשימת מאכלים",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/Food"
+                  }
+                },
+                "example": [
+                  {
+                    "id": 1,
+                    "name": "לחם מלא",
+                    "category": "GRAINS",
+                    "categoryLabel": "דגנים",
+                    "servingDescription": "2 פרוסות",
+                    "caloriesPerServing": 140,
+                    "isActive": true,
+                    "createdAt": "2026-10-01T08:00:00.000Z",
+                    "updatedAt": "2026-10-01T08:00:00.000Z"
+                  }
+                ]
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "מאכלים"
+        ],
+        "summary": "הוספת מאכל",
+        "description": "דיאטן בלבד.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FoodInput"
+              },
+              "example": {
+                "name": "כוסמת מבושלת",
+                "category": "GRAINS",
+                "servingDescription": "כוס",
+                "caloriesPerServing": 155
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "המאכל נוצר",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Food"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          }
+        }
+      }
+    },
+    "/api/foods/{id}": {
+      "put": {
+        "tags": [
+          "מאכלים"
+        ],
+        "summary": "עריכת מאכל",
+        "description": "שולחים את כל השדות. ארוחות שכבר נרשמו לא משתנות. דיאטן בלבד.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "מזהה המאכל",
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "example": 1
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FoodInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "המאכל עודכן",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Food"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          }
+        }
+      }
+    },
+    "/api/foods/{id}/status": {
+      "patch": {
+        "tags": [
+          "מאכלים"
+        ],
+        "summary": "הפעלה / השבתה של מאכל",
+        "description": "דיאטן בלבד.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "מזהה המאכל",
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "example": 1
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StatusInput"
+              },
+              "example": {
+                "isActive": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "הסטטוס עודכן",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Food"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        }
+      }
+    },
+    "/api/weights": {
+      "get": {
+        "tags": [
+          "שקילות"
+        ],
+        "summary": "השקילות שלי",
+        "description": "מהחדשה לישנה. משתמש רגיל בלבד.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "רשימת שקילות",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/Weight"
+                  }
+                },
+                "example": [
+                  {
+                    "id": 5,
+                    "date": "2026-10-22",
+                    "weightKg": 85.1,
+                    "note": null,
+                    "createdAt": "2026-10-22T06:00:00.000Z"
+                  }
+                ]
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "שקילות"
+        ],
+        "summary": "הוספת שקילה",
+        "description": "שקילה אחת לכל יום. משתמש רגיל בלבד.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WeightInput"
+              },
+              "example": {
+                "date": "2026-10-22",
+                "weightKg": 85.1,
+                "note": "אחרי שבוע טוב"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "השקילה נוספה",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Weight"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "409": {
+            "description": "כבר קיימת שקילה בתאריך הזה. אפשר לערוך את השקילה הקיימת",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "status": 409,
+                  "code": "CONFLICT",
+                  "message": "כבר קיימת שקילה בתאריך הזה. אפשר לערוך את השקילה הקיימת"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/weights/{id}": {
+      "put": {
+        "tags": [
+          "שקילות"
+        ],
+        "summary": "עריכת שקילה",
+        "description": "רק שקילה שלי (שקילה של אחר מחזירה 404). משתמש רגיל בלבד.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "מזהה השקילה",
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "example": 1
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WeightInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "השקילה עודכנה",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Weight"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "שקילות"
+        ],
+        "summary": "מחיקת שקילה",
+        "description": "רק שקילה שלי. משתמש רגיל בלבד.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "מזהה השקילה",
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "example": 1
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "נמחקה (ללא תוכן)"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        }
+      }
+    },
+    "/api/meals": {
+      "get": {
+        "tags": [
+          "יומן אכילה"
+        ],
+        "summary": "יום ביומן האכילה",
+        "description": "ארוחות היום, סך קלוריות, ציון יומי, \"התפריט שלי להיום\" ועמידה בתפריט. משתמש רגיל בלבד.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "date",
+            "in": "query",
+            "required": false,
+            "description": "תאריך בפורמט YYYY-MM-DD. ברירת מחדל: היום",
+            "schema": {
+              "type": "string",
+              "format": "date"
+            },
+            "example": "2026-10-22"
+          },
+          {
+            "name": "source",
+            "in": "query",
+            "required": false,
+            "description": "סינון הארוחות: MENU = מהתפריט, OTHER = מחוץ לתפריט. בלי ערך = הכל. (הסיכומים תמיד על כל היום)",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "MENU",
+                "OTHER"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "סיכום היום",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DaySummary"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "יומן אכילה"
+        ],
+        "summary": "הוספת ארוחה",
+        "description": "בוחרים מאכל מהמאגר ומספר מנות. הקלוריות מחושבות בשרת. אם המאכל וסוג הארוחה מופיעים בתפריט - מסומן \"מהתפריט\". משתמש רגיל בלבד.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MealInput"
+              },
+              "example": {
+                "date": "2026-10-22",
+                "mealType": "LUNCH",
+                "foodId": 18,
+                "servings": 1
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "הארוחה נוספה",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Meal"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          }
+        }
+      }
+    },
+    "/api/meals/from-menu": {
+      "post": {
+        "tags": [
+          "יומן אכילה"
+        ],
+        "summary": "\"אכלתי ✓\" - הוספה מהתפריט",
+        "description": "מוסיף ליומן פריט מהתפריט שלי בלחיצה אחת. אי אפשר לסמן אותו פריט פעמיים באותו יום. משתמש רגיל בלבד.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FromMenuInput"
+              },
+              "example": {
+                "menuItemId": 11
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "הארוחה נוספה",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Meal"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "description": "הפריט לא נמצא בתפריט שלך",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "status": 404,
+                  "code": "NOT_FOUND",
+                  "message": "הפריט לא נמצא בתפריט שלך"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "הפריט הזה כבר סומן כנאכל בתאריך הזה",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "status": 409,
+                  "code": "CONFLICT",
+                  "message": "הפריט הזה כבר סומן כנאכל בתאריך הזה"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/meals/{id}": {
+      "put": {
+        "tags": [
+          "יומן אכילה"
+        ],
+        "summary": "עריכת ארוחה",
+        "description": "שולחים את כל השדות. הקלוריות מחושבות מחדש. רק ארוחה שלי. משתמש רגיל בלבד.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "מזהה הארוחה",
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "example": 1
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MealInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "הארוחה עודכנה",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Meal"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "יומן אכילה"
+        ],
+        "summary": "מחיקת ארוחה",
+        "description": "רק ארוחה שלי. משתמש רגיל בלבד.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "מזהה הארוחה",
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "example": 1
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "נמחקה (ללא תוכן)"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        }
+      }
+    },
+    "/api/consultations": {
+      "get": {
+        "tags": [
+          "פניות"
+        ],
+        "summary": "רשימת פניות",
+        "description": "משתמש רגיל: רק הפניות שלו. דיאטן: כל הפניות (כולל פרטי השולח). מהחדשה לישנה.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "description": "סינון לפי סטטוס",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "PENDING",
+                "ANSWERED"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "רשימת פניות",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/Consultation"
+                  }
+                },
+                "example": [
+                  {
+                    "id": 2,
+                    "subject": "ירידה איטית",
+                    "message": "השבוע ירדתי פחות מבשבוע שעבר. האם זה תקין?",
+                    "status": "PENDING",
+                    "statusLabel": "ממתינה לתשובה",
+                    "answer": null,
+                    "answeredAt": null,
+                    "createdAt": "2026-10-21T18:00:00.000Z"
+                  }
+                ]
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "פניות"
+        ],
+        "summary": "שליחת פנייה לדיאטן",
+        "description": "אפשרי רק כשהשיתוף עם הדיאטן פעיל. משתמש רגיל בלבד.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ConsultationCreate"
+              },
+              "example": {
+                "subject": "שאלה על התפריט",
+                "message": "אפשר להחליף את האורז בקוסקוס?"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "הפנייה נשלחה",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Consultation"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "description": "כדי לשלוח פנייה יש להפעיל קודם שיתוף מידע עם הדיאטן",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "status": 403,
+                  "code": "FORBIDDEN",
+                  "message": "כדי לשלוח פנייה יש להפעיל קודם שיתוף מידע עם הדיאטן"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/consultations/{id}/answer": {
+      "patch": {
+        "tags": [
+          "פניות"
+        ],
+        "summary": "מענה לפנייה",
+        "description": "משנה את הסטטוס ל-ANSWERED. אפשר גם לעדכן תשובה קיימת. דיאטן בלבד.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "מזהה הפנייה",
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "example": 1
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AnswerInput"
+              },
+              "example": {
+                "answer": "כן, כמות קלוריות דומה."
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "התשובה נשמרה",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Consultation"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        }
+      }
+    },
+    "/api/admin/users": {
+      "get": {
+        "tags": [
+          "ניהול משתמשים"
+        ],
+        "summary": "רשימת משתמשים",
+        "description": "משתמשים רגילים בלבד, ללא משקלים ויומן. חיפוש לפי שם או אימייל. דיאטן בלבד.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "search",
+            "in": "query",
+            "required": false,
+            "description": "חיפוש בשם או באימייל",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "רשימת משתמשים",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/AdminUserListItem"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          }
+        }
+      }
+    },
+    "/api/admin/users/{id}": {
+      "get": {
+        "tags": [
+          "ניהול משתמשים"
+        ],
+        "summary": "פרטי משתמש",
+        "description": "אם המשתמש משתף: פרופיל, מסלול, תפריט, התקדמות, היום ושקילות. אם לא: פרטים בסיסיים בלבד. דיאטן בלבד.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "מזהה המשתמש",
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "example": 1
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "פרטי משתמש",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminUserDetails"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        }
+      }
+    },
+    "/api/admin/users/{id}/status": {
+      "patch": {
+        "tags": [
+          "ניהול משתמשים"
+        ],
+        "summary": "חסימה / הפעלה של משתמש",
+        "description": "משתמש חסום לא יכול להתחבר, וה-Token הקיים שלו מפסיק לעבוד. דיאטן בלבד.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "מזהה המשתמש",
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "example": 1
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StatusInput"
+              },
+              "example": {
+                "isActive": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "הסטטוס עודכן",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/User"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        }
+      }
+    },
+    "/api/admin/users/{id}/meals": {
+      "get": {
+        "tags": [
+          "ניהול משתמשים"
+        ],
+        "summary": "יומן האכילה של משתמש",
+        "description": "רק אם המשתמש משתף - אחרת 403. דיאטן בלבד.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "מזהה המשתמש",
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "example": 1
+          },
+          {
+            "name": "date",
+            "in": "query",
+            "required": false,
+            "description": "תאריך בפורמט YYYY-MM-DD. ברירת מחדל: היום",
+            "schema": {
+              "type": "string",
+              "format": "date"
+            },
+            "example": "2026-10-22"
+          },
+          {
+            "name": "source",
+            "in": "query",
+            "required": false,
+            "description": "סינון הארוחות: MENU = מהתפריט, OTHER = מחוץ לתפריט. בלי ערך = הכל. (הסיכומים תמיד על כל היום)",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "MENU",
+                "OTHER"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "סיכום היום",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DaySummary"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "description": "המשתמש לא שיתף את המידע שלו עם הדיאטן",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "status": 403,
+                  "code": "FORBIDDEN",
+                  "message": "המשתמש לא שיתף את המידע שלו עם הדיאטן"
+                }
+              }
+            }
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        }
+      }
+    }
+  }
+}
