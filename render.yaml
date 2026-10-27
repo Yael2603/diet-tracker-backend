@@ -24,7 +24,7 @@ services:
       - key: JWT_EXPIRES_IN
         value: 1d
       - key: CORS_ORIGIN
-        value: http://localhost:5173
+        value: http://localhost:5173,https://diet-tracker-client-de49.onrender.com
       - key: APP_TIMEZONE
         value: Asia/Jerusalem
       - key: SEED_ON_START
